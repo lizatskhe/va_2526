@@ -11,6 +11,7 @@ The project presents an interactive visual analytics system for exploring the QS
 ├── qs_2025_pca.csv                  # Preprocessed QS 2025 dataset with PCA components
 ├── va_2526_shokayeva_tskhe.pdf      # Final project report 
 ├── va_2526_ppt_shokayeva_tskhe.pdf  # PowerPoint presentation
+├── va_2526_data_preprocessing.ipynb # Data preprocessing script
 └── README.md                        # Project description and instructions
 ```
 
