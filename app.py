@@ -213,6 +213,7 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
         return make_empty_radar(), html.P("Select universities to see the summary."), empty_bar_figure(), pca_fig
 
     indices = []
+    clicked_uni_id = None
     
     # PCA selection/click
     if trigger_component == "pca-scatter":
@@ -233,8 +234,19 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
                 # no safe global row_id -> ignore
                 indices = []
 
-    # Radar click
+    # radar click - preserve the current selection from the radar chart
     elif trigger_component == "profile-view":
+        if current_radar_fig and "data" in current_radar_fig:
+            for trace in current_radar_fig["data"]:
+                trace_name = trace.get("name", "")
+                if trace_name in ["Selection mean", "Global mean"]:
+                    continue
+                if "customdata" in trace and trace["customdata"]:
+                    rid = trace["customdata"][0]
+                    if rid not in indices:
+                        indices.append(rid)
+        
+        # handle the click to highlight on PCA
         if radar_clickData and "points" in radar_clickData:
             clicked_point = radar_clickData["points"][0]
             
@@ -245,14 +257,11 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
                 if "data" in current_radar_fig and curve_num < len(current_radar_fig["data"]):
                     trace = current_radar_fig["data"][curve_num]
                     trace_name = trace.get("name", "")
-                    
-                    print(f"DEBUG - curveNumber: {curve_num}, trace_name: '{trace_name}'")
-                    
+                                        
                     if trace_name and trace_name not in ["Selection mean", "Global mean"]:
                         uni_row = df[df["Institution Name"] == trace_name]
                         if not uni_row.empty:
-                            indices = [uni_row.iloc[0]["row_id"]]
-                            print(f"Found university: {trace_name} with row_id: {indices[0]}")
+                            clicked_uni_id = uni_row.iloc[0]["row_id"]
 
     if not indices:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -309,17 +318,17 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
 
     # ------------------ PCA UPDATE FOR RADAR CLICKS ------------------
     updated_pca = dash.no_update
-    if trigger_component == "profile-view" and len(sel) == 1:
-        highlight_point = sel.iloc[0]
-        custom = [[int(highlight_point["row_id"])]]
+    if trigger_component == "profile-view" and clicked_uni_id is not None:
+        highlight_row = df[df["row_id"] == clicked_uni_id].iloc[0]
+        custom = [[int(clicked_uni_id)]]
 
         updated_pca = go.Figure(current_pca_fig)
         
         # Layer 1: Large black outline (bottom layer)
         updated_pca.add_trace(
             go.Scatter(
-                x=[highlight_point["pca_1"]],
-                y=[highlight_point["pca_2"]],
+                x=[highlight_row["pca_1"]],
+                y=[highlight_row["pca_2"]],
                 mode="markers",
                 marker=dict(
                     size=35,
@@ -335,8 +344,8 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
         # Layer 2: White circle for contrast
         updated_pca.add_trace(
             go.Scatter(
-                x=[highlight_point["pca_1"]],
-                y=[highlight_point["pca_2"]],
+                x=[highlight_row["pca_1"]],
+                y=[highlight_row["pca_2"]],
                 mode="markers",
                 marker=dict(
                     size=30,
@@ -352,15 +361,15 @@ def update_profile(selectedData, pca_clickData, radar_clickData, clear_clicks, c
         # Layer 3: Orange/red inner circle
         updated_pca.add_trace(
             go.Scatter(
-                x=[highlight_point["pca_1"]],
-                y=[highlight_point["pca_2"]],
+                x=[highlight_row["pca_1"]],
+                y=[highlight_row["pca_2"]],
                 mode="markers",
                 marker=dict(
                     size=22,
                     symbol="circle",
                     color="#FF6347",  # Tomato red
                 ),
-                name=f"Selected: {highlight_point['Institution Name']}",
+                name=f"Selected: {highlight_row['Institution Name']}",
                 showlegend=False,
                 hoverinfo="skip",
                 customdata=custom,
